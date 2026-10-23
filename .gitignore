@@ -1,0 +1,20 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Excel temporary files
+~$*.xls*
+*.tmp
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+*.xlsm
+test.xlsm
+*.xlsx
