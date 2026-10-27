@@ -1,31 +1,114 @@
-# eda/parser.py
 
-# Parsing an already loaded EDA workbook (see utils/reader.py)
-# Extracting:
-# target brand
-# competitor brands
-# Detecting:
-# Variable column
-# Aggregated P1
-# Aggregated P2
-# Building and returning the results dictionary
+def build_variable_mapping(variables_df):
 
-import re
+    variables_df = variables_df.copy()
+
+    variables_df.columns = (
+        variables_df.columns
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    mapping = {}
+
+    required = [
+        "variables",
+        "eda_report",
+    ]
+
+    variables_df = variables_df.dropna(
+        subset=required
+    )
+
+    for _, row in variables_df.iterrows():
+
+        summary_variable = (
+            str(row["variables"])
+            .strip()
+        )
+
+        eda_variable = (
+            str(row["eda_report"])
+            .strip()
+            .lower()
+        )
+
+        if summary_variable and eda_variable:
+
+            mapping[
+                eda_variable
+            ] = summary_variable
+
+    return mapping
 
 
-def empty_metrics():
+def normalize_name(value):
 
-    return {
-        "tpr": {"P1": None, "P2": None},
-        "regular_price": {"P1": None, "P2": None},
-        "feature": {"P1": 0, "P2": 0},
-        "display": {"P1": 0, "P2": 0},
-    }
+    return (
+        str(value)
+        .strip()
+        .lower()
+        .replace(" ", "_")
+    )
+
+
+def resolve_metadata_variable(
+    predictor_variable,
+    brand,
+    variable_mapping,
+):
+    """
+    Resolve a predictor variable using the
+    metadata mapping.
+
+    Example:
+
+    Mapping:
+        brand_tpr
+
+    Brand:
+        Coca Cola
+
+    Resolves to:
+        coca_cola_tpr
+    """
+
+    predictor_variable = normalize_name(
+        predictor_variable
+    )
+
+    normalized_brand = normalize_name(
+        brand
+    )
+
+    for (
+        eda_variable,
+        summary_variable,
+    ) in variable_mapping.items():
+
+        resolved_variable = (
+            normalize_name(
+                eda_variable
+            )
+            .replace(
+                "brand",
+                normalized_brand
+            )
+        )
+
+        if predictor_variable == resolved_variable:
+
+            return summary_variable
+
+    return None
 
 
 def get_project_info(eda_wb):
 
-    project_ws = eda_wb["project_info"]
+    project_ws = eda_wb[
+        "project_info"
+    ]
 
     target_brand = str(
         project_ws["I2"].value
@@ -37,9 +120,14 @@ def get_project_info(eda_wb):
 
     while True:
 
-        value = project_ws[f"J{row}"].value
+        value = project_ws[
+            f"J{row}"
+        ].value
 
-        if value in (None, ""):
+        if value in (
+            None,
+            "",
+        ):
             break
 
         competitor_brands.append(
@@ -48,199 +136,240 @@ def get_project_info(eda_wb):
 
         row += 1
 
-    return target_brand, competitor_brands
+    return (
+        target_brand,
+        competitor_brands,
+    )
 
 
-def get_predictor_columns(pred_ws):
+def get_period_labels(periods_df):
+
+    periods = (
+        periods_df["custom_period"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .drop_duplicates()
+        .tolist()
+    )
+
+    if not periods:
+
+        raise ValueError(
+            "At least one period is required."
+        )
+
+    return periods
+
+def get_predictor_columns(
+    pred_ws,
+    period_labels,
+):
 
     variable_col = None
-    p1_col = None
-    p2_col = None
+    period_cols = {}
 
     last_row1 = ""
 
-    for col in range(1, pred_ws.max_column + 1):
+    expected_periods = {
+        str(period).strip().lower()
+        for period in period_labels
+    }
 
-        row1 = pred_ws.cell(1, col).value
-        row2 = pred_ws.cell(2, col).value
+    for col in range(
+        1,
+        pred_ws.max_column + 1,
+    ):
 
-        row1 = "" if row1 is None else str(row1).strip()
-        row2 = "" if row2 is None else str(row2).strip()
+        row1 = pred_ws.cell(
+            1,
+            col,
+        ).value
+
+        row2 = pred_ws.cell(
+            2,
+            col,
+        ).value
+
+        row1 = (
+            ""
+            if row1 is None
+            else str(row1).strip()
+        )
+
+        row2 = (
+            ""
+            if row2 is None
+            else str(row2).strip()
+        )
 
         # Handle merged headers
-        if row1 != "":
+
+        if row1:
             last_row1 = row1
         else:
             row1 = last_row1
 
         if row1.lower() == "variable":
+
             variable_col = col
 
-        if row1.lower() == "aggregated":
+        elif row1.lower() == "aggregated":
 
-            if row2.lower() in ["year 1", "p1"]:
-                p1_col = col
+            period_name = row2.lower()
 
-            elif row2.lower() in ["year 2", "p2"]:
-                p2_col = col
+            if (
+                period_name
+                in expected_periods
+            ):
+
+                period_cols[
+                    row2
+                ] = col
 
     if variable_col is None:
+
         raise ValueError(
-            "Variable column not found"
+            "Variable column not found."
         )
 
-    if p1_col is None:
+    missing_periods = [
+        period
+        for period in period_labels
+        if period.lower()
+        not in {
+            key.lower()
+            for key in period_cols
+        }
+    ]
+
+    if missing_periods:
+
         raise ValueError(
-            "P1 column not found"
+            "Missing Aggregated columns "
+            f"for periods: {missing_periods}"
         )
 
-    if p2_col is None:
-        raise ValueError(
-            "P2 column not found"
+    ordered_period_cols = [
+        period_cols[period]
+        for period in period_labels
+    ]
+
+    return (
+        variable_col,
+        ordered_period_cols,
+    )
+
+def build_results(
+    eda_wb,
+    variables_df,
+    periods_df,
+):
+
+    variable_mapping = (
+        build_variable_mapping(
+            variables_df
         )
+    )
 
-    return variable_col, p1_col, p2_col
-
-
-def build_results(eda_wb):
+    period_labels = (
+        get_period_labels(
+            periods_df
+        )
+    )
 
     target_brand, competitor_brands = (
-        get_project_info(eda_wb)
+        get_project_info(
+            eda_wb
+        )
     )
 
     pred_ws = eda_wb[
         "Predictors Summary"
     ]
 
-    variable_col, p1_col, p2_col = (
-        get_predictor_columns(pred_ws)
+    variable_col, period_cols = (
+        get_predictor_columns(
+            pred_ws,
+            period_labels
+        )
     )
 
-    results = {
-        "target_brand": {
-            target_brand: empty_metrics()
-        },
-        "competitor_brands": {
-            brand: empty_metrics()
-            for brand in competitor_brands
-        }
-    }
+    if len(period_cols) != len(
+        period_labels
+    ):
+
+        raise ValueError(
+            f"Found {len(period_cols)} aggregated columns "
+            f"but {len(period_labels)} periods were configured."
+        )
 
     all_brands = (
         [target_brand]
         + competitor_brands
     )
 
-    for row in range(4, pred_ws.max_row + 1):
+    results = {
+        brand: {
+            variable: {
+                period: 0
+                for period in period_labels
+            }
+            for variable in (
+                variable_mapping.values()
+            )
+        }
+        for brand in all_brands
+    }
 
-        variable = pred_ws.cell(
+    for row in range(
+        4,
+        pred_ws.max_row + 1,
+    ):
+
+        predictor_variable = pred_ws.cell(
             row,
-            variable_col
+            variable_col,
         ).value
 
-        if variable is None:
+        if predictor_variable is None:
             continue
 
-        variable = str(variable).strip()
+        values = {}
 
-        p1 = pred_ws.cell(
-            row,
-            p1_col
-        ).value
+        for period, col in zip(
+            period_labels,
+            period_cols,
+        ):
 
-        p2 = pred_ws.cell(
-            row,
-            p2_col
-        ).value
+            value = pred_ws.cell(
+                row,
+                col,
+            ).value
+
+            values[period] = (
+                0
+                if value is None
+                else value
+            )
 
         for brand in all_brands:
 
-            container = (
-                results["target_brand"]
-                if brand == target_brand
-                else results[
-                    "competitor_brands"
-                ]
+            summary_variable = (
+                resolve_metadata_variable(
+                    predictor_variable=
+                    predictor_variable,
+                    brand=brand,
+                    variable_mapping=
+                    variable_mapping,
+                )
             )
 
-            # ------------------
-            # TPR
-            # ------------------
+            if summary_variable is None:
+                continue
 
-            if variable.lower() == (
-                f"{brand}_tpr"
-            ).lower():
+            results[brand][
+                summary_variable
+            ] = values.copy()
 
-                container[brand]["tpr"] = {
-                    "P1": p1,
-                    "P2": p2,
-                }
-
-            # ------------------
-            # REGULAR PRICE
-            # ------------------
-
-            candidates = [
-                f"{brand}_regularprice",
-                f"{brand}_regular_price"
-            ]
-
-            if variable.lower() in [
-                c.lower()
-                for c in candidates
-            ]:
-
-                container[brand][
-                    "regular_price"
-                ] = {
-                    "P1": p1,
-                    "P2": p2,
-                }
-
-            # ------------------
-            # FEATURE
-            # ------------------
-
-            feature_pattern = (
-                rf"^FEATURE_"
-                rf"{re.escape(brand)}_"
-            )
-
-            if re.match(
-                feature_pattern,
-                variable,
-                re.IGNORECASE
-            ):
-
-                container[brand][
-                    "feature"
-                ]["P1"] += p1 or 0
-
-                container[brand][
-                    "feature"
-                ]["P2"] += p2 or 0
-
-            # ------------------
-            # DISPLAY
-            # ------------------
-
-            display_pattern = (
-                rf"^DISPLAY_"
-                rf"{re.escape(brand)}_"
-            )
-
-            if re.match(
-                display_pattern,
-                variable,
-                re.IGNORECASE
-            ):
-
-                container[brand][
-                    "display"
-                ]["P1"] += p1 or 0
-
-                container[brand][
-                    "display"
-                ]["P2"] += p2 or 0
-
-    return results
+    return results
