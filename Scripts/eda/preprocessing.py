@@ -1,3 +1,12 @@
+# eda_preprocessing.py
+reader = WorkbookReader(workbook_path)
+periods_df, variables_df, brands_df = reader.mappings()
+eda_wb = reader.source("eda")
+raw_results = build_results(eda_wb)      # parsing stays in eda/
+
+
+
+
 def get_period_labels(periods_df):
 
     periods = (
