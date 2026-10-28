@@ -87,6 +87,8 @@ def main():
         periods_df=periods_df,
         worksheet_name="Executive Summary",
         section_name="Model",
+        variables_mapping_df=None,
+        brands_mapping_df=None,
     )
 
 

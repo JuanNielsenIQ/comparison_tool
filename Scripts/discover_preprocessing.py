@@ -37,6 +37,8 @@ def main():
         periods_df=periods_df,
         worksheet_name="Executive Summary",
         section_name="DISCOVER",
+        variables_mapping_df=variables_mapping_df,
+        brands_mapping_df=brands_mapping_df,
     )
 
 
