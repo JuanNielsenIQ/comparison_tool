@@ -56,35 +56,83 @@ def find_or_create_section(
     section_name,
     period_labels,
 ):
+    """
+    Returns the first column of the section.
 
-    col = 4
+    If the section does not exist:
+        - Creates period columns
+        - Creates VAR column
+        - Appends after the last used header
+    """
 
-    while col <= 200:
+    #
+    # Existing section
+    #
 
-        value = ws.Cells(1, col).Value
+    for col in range(4, 201):
+
+        value = ws.Cells(
+            1,
+            col
+        ).Value
 
         if (
             value is not None
-            and
-            str(value).strip().upper()
+            and str(value).strip().upper()
             == section_name.upper()
         ):
+
             return col
 
-        col += 3
+    #
+    # Find first empty header column
+    #
 
-    col = 4
+    section_col = (
+        ws.Cells(
+            2,
+            ws.Columns.Count
+        )
+        .End(-4159)  # xlToLeft
+        .Column
+        + 1
+    )
 
-    while ws.Cells(1, col).Value is not None:
-        col += 3
+    #
+    # Section name
+    #
 
-    ws.Cells(1, col).Value = section_name
+    ws.Cells(
+        1,
+        section_col
+    ).Value = section_name
 
-    ws.Cells(2, col).Value = period_labels[0]
-    ws.Cells(2, col + 1).Value = period_labels[1]
-    ws.Cells(2, col + 2).Value = "VAR"
+    current_col = section_col
 
-    return col
+    #
+    # Period columns
+    #
+
+    for period in period_labels:
+
+        ws.Cells(
+            2,
+            current_col
+        ).Value = period
+
+        current_col += 1
+
+    #
+    # VAR column
+    #
+
+    ws.Cells(
+        2,
+        current_col
+    ).Value = "VAR"
+
+    return section_col
+
 
 
 def calculate_var(
@@ -164,12 +212,36 @@ def build_sheet_lookup(ws):
     return lookup
 
 
+def get_or_create_worksheet(
+    wb,
+    worksheet_name,
+):
+
+    try:
+
+        return wb.Worksheets(
+            worksheet_name
+        )
+
+    except Exception:
+
+        ws = wb.Worksheets.Add()
+
+        ws.Name = (
+            worksheet_name
+        )
+
+        return ws
+
+
 def write_report(
     workbook_path,
     results,
     periods_df,
     worksheet_name="Executive Summary",
     section_name="DISCOVER",
+    variables_mapping_df=None,
+    brands_mapping_df=None,
 ):
 
     excel = win32com.client.GetObject(
@@ -181,8 +253,9 @@ def write_report(
         workbook_path,
     )
 
-    ws = wb.Worksheets(
-        worksheet_name
+    ws = get_or_create_worksheet(
+        wb,
+        worksheet_name,
     )
 
     initialize_layout(ws)
@@ -191,31 +264,121 @@ def write_report(
         periods_df
     )
 
-    p1_name = period_labels[0]
-    p2_name = period_labels[1]
+    #
+    # Build ordered brands
+    #
 
-    section_col = find_or_create_section(
-        ws,
-        section_name,
-        period_labels,
+    if brands_mapping_df is not None:
+
+        brand_order = (
+            brands_mapping_df.iloc[:, 0]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .tolist()
+        )
+
+    else:
+
+        brand_order = list(
+            results.keys()
+        )
+
+    #
+    # Build ordered variables
+    #
+
+    if variables_mapping_df is not None:
+
+        variable_order = (
+            variables_mapping_df[
+                "variables"
+            ]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .tolist()
+        )
+
+    else:
+
+        all_vars = set()
+
+        for measures in (
+            results.values()
+        ):
+            all_vars.update(
+                measures.keys()
+            )
+
+        variable_order = list(
+            all_vars
+        )
+
+    #
+    # Create section
+    #
+
+    
+    section_col = (
+        find_or_create_section(
+            ws,
+            section_name,
+            period_labels
+        )
     )
 
-    # =====================================
-    # MODE 1
-    # Existing structure already exists
-    # =====================================
+    #
+    # Map section columns
+    #
+
+    section_columns = {}
+
+    current_col = section_col
+
+    for period in period_labels:
+
+        section_columns[
+            period
+        ] = current_col
+
+        current_col += 1
+
+    section_columns[
+        "VAR"
+    ] = current_col
+
+    #
+    # Existing structure
+    #
 
     if sheet_has_structure(ws):
 
-        lookup = build_sheet_lookup(ws)
+        lookup = (
+            build_sheet_lookup(
+                ws
+            )
+        )
 
-        for brand, measures in results.items():
+        for brand in brand_order:
 
-            for variable, periods in measures.items():
+            if brand not in results:
+                continue
+
+            measures = results[
+                brand
+            ]
+
+            for variable in (
+                variable_order
+            ):
+
+                if variable not in measures:
+                    continue
 
                 key = (
-                    str(brand).strip().upper(),
-                    str(variable).strip().upper(),
+                    brand.upper(),
+                    variable.upper(),
                 )
 
                 if key not in lookup:
@@ -223,49 +386,142 @@ def write_report(
 
                 row = lookup[key]
 
-                p1 = periods.get(p1_name)
-                p2 = periods.get(p2_name)
+                periods = measures[
+                    variable
+                ]
 
-                var_value = calculate_var(
-                    p1,
-                    p2,
+                #
+                # Write periods
+                #
+
+                for period in (
+                    period_labels
+                ):
+
+                    ws.Cells(
+                        row,
+                        section_columns[
+                            period
+                        ]
+                    ).Value = (
+                        periods.get(
+                            period
+                        )
+                    )
+
+                #
+                # VAR uses first/last period
+                #
+
+                first_period = (
+                    period_labels[0]
                 )
 
-                ws.Cells(row, section_col).Value = p1
-                ws.Cells(row, section_col + 1).Value = p2
-                ws.Cells(row, section_col + 2).Value = var_value
+                last_period = (
+                    period_labels[-1]
+                )
+
+                var_value = (
+                    calculate_var(
+                        periods.get(
+                            first_period
+                        ),
+                        periods.get(
+                            last_period
+                        ),
+                    )
+                )
+
+                ws.Cells(
+                    row,
+                    section_columns[
+                        "VAR"
+                    ]
+                ).Value = var_value
 
         last_row = max(
-            lookup.values()
+            lookup.values(),
+            default=3,
         )
 
-    # =====================================
-    # MODE 2
-    # Empty sheet
-    # =====================================
+    #
+    # Empty structure
+    #
 
     else:
 
         row = 3
 
-        for brand, measures in results.items():
+        for brand in brand_order:
 
-            for variable, periods in measures.items():
+            if brand not in results:
+                continue
 
-                p1 = periods.get(p1_name)
-                p2 = periods.get(p2_name)
+            measures = results[
+                brand
+            ]
 
-                var_value = calculate_var(
-                    p1,
-                    p2,
+            for variable in (
+                variable_order
+            ):
+
+                if variable not in measures:
+                    continue
+
+                periods = measures[
+                    variable
+                ]
+
+                ws.Cells(
+                    row,
+                    1
+                ).Value = brand
+
+                ws.Cells(
+                    row,
+                    3
+                ).Value = variable
+
+                for period in (
+                    period_labels
+                ):
+
+                    ws.Cells(
+                        row,
+                        section_columns[
+                            period
+                        ]
+                    ).Value = (
+                        periods.get(
+                            period
+                        )
+                    )
+
+                first_period = (
+                    period_labels[0]
                 )
 
-                ws.Cells(row, 1).Value = brand
-                ws.Cells(row, 3).Value = variable
+                last_period = (
+                    period_labels[-1]
+                )
 
-                ws.Cells(row, section_col).Value = p1
-                ws.Cells(row, section_col + 1).Value = p2
-                ws.Cells(row, section_col + 2).Value = var_value
+                var_value = (
+                    calculate_var(
+                        periods.get(
+                            first_period
+                        ),
+                        periods.get(
+                            last_period
+                        ),
+                    )
+                )
+
+                ws.Cells(
+                    row,
+                    section_columns[
+                        "VAR"
+                    ]
+                ).Value = var_value
 
                 row += 1
 
@@ -280,6 +536,7 @@ def write_report(
     excel.Calculate()
 
     return last_row
+
 
 def build_brand_variable_lookup(ws):
 
@@ -330,7 +587,7 @@ def write_brand_metric(
     results,
     worksheet_name="Executive Summary",
     section_name="MODEL",
-    metric_name="DUE TOS",
+    metric_name="DUE TOS (%)",
 ):
 
     excel = win32com.client.GetObject(
@@ -342,9 +599,11 @@ def write_brand_metric(
         workbook_path,
     )
 
-    ws = wb.Worksheets(
-        worksheet_name
+    ws = get_or_create_worksheet(
+        wb,
+        worksheet_name,
     )
+
 
     initialize_layout(ws)
 

@@ -87,6 +87,8 @@ def main():
         periods_df=periods_df,
         worksheet_name="Executive Summary",
         section_name="Model",
+        variables_mapping_df=None,
+        brands_mapping_df=None,
     )
 
 
@@ -102,7 +104,7 @@ def main():
         workbook_path=workbook_path,
         results=duetos_results,
         section_name="MODEL",
-        metric_name="DUE TOS",
+        metric_name="DUE TOS (%)",
     )
 
 
