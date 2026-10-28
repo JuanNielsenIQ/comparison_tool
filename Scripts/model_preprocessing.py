@@ -35,8 +35,6 @@ def main():
         reader.mappings()
     )
 
-    target_brand = brands_df.iloc[0, 0]
-    competitor_brands = brands_df.iloc[0, 1:].dropna().astype(str).str.strip().tolist()
 
     #
     # Source workbook
@@ -87,8 +85,8 @@ def main():
         periods_df=periods_df,
         worksheet_name="Executive Summary",
         section_name="Model",
-        variables_mapping_df=None,
-        brands_mapping_df=None,
+        variables_mapping_df=variables_df,
+        brands_mapping_df=brands_df,
     )
 
 
