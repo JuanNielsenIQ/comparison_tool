@@ -25,10 +25,10 @@ def main():
     discover_df = reader.source("discover")
 
     results = build_discover_results(
-        discover_df,
-        periods_df,
-        variables_mapping_df,
-        brands_mapping_df,
+        discover_df=discover_df,
+        discover_mapping_df=variables_mapping_df,
+        brands_mapping_df=brands_mapping_df,
+        workbook_path=workbook_path
     )
 
     write_report(
@@ -39,6 +39,7 @@ def main():
         section_name="DISCOVER",
         variables_mapping_df=variables_mapping_df,
         brands_mapping_df=brands_mapping_df,
+        is_discover=True
     )
 
 

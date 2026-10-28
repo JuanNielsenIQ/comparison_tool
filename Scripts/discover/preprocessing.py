@@ -1,5 +1,7 @@
 # discover/preprocessing.py
+import win32com.client
 
+from utils.table_output import get_workbook
 
 def normalize(value):
 
@@ -31,29 +33,59 @@ def get_brand_column(discover_df):
         "Neither BRAND nor SC BRAND found."
     )
 
+def build_period_lookup(
+    workbook_path,
+):
 
-def build_period_lookup(periods_df):
-
-    periods_df = periods_df.copy()
-
-    periods_df = periods_df[
-        periods_df["custom_period"]
-        .notna()
-    ]
-
-    periods_df = periods_df[
-        periods_df["custom_period"]
-        .astype(str)
-        .str.strip()
-        != ""
-    ]
-
-    return dict(
-        zip(
-            periods_df["discover_weeks"],
-            periods_df["custom_period"]
-        )
+    excel = win32com.client.GetObject(
+        Class="Excel.Application"
     )
+
+    wb = get_workbook(
+        excel,
+        workbook_path,
+    )
+
+    ws = wb.Worksheets(
+        "Periods Mapping"
+    )
+
+    mapping = {}
+
+    row = 2
+
+    while True:
+
+        discover_week = ws.Cells(
+            row,
+            1,  # A
+        ).Value
+
+        custom_period = ws.Cells(
+            row,
+            5,  # E
+        ).Value
+
+        if (
+            discover_week is None
+            and custom_period is None
+        ):
+            break
+
+        if (
+            discover_week is not None
+            and custom_period is not None
+        ):
+
+            mapping[
+                discover_week
+            ] = str(
+                custom_period
+            ).strip()
+
+        row += 1
+
+    return mapping
 
 def build_brand_mapping(brands_mapping_df):
 
@@ -79,19 +111,19 @@ def build_brand_mapping(brands_mapping_df):
 
 def build_discover_results(
     discover_df,
-    periods_df,
     discover_mapping_df,
     brands_mapping_df,
+    workbook_path
 ):
 
     discover_df = discover_df.copy()
 
     period_lookup = build_period_lookup(
-        periods_df
+        workbook_path=workbook_path
     )
 
     discover_df["custom_period"] = (
-        discover_df["Periods"]
+        discover_df["Periods"] # TODO: verify that always it is "Periods" column
         .map(period_lookup)
     )
 
@@ -182,14 +214,11 @@ def build_discover_results(
     # Apply Brand Mapping
     # ---------------------------------
 
-    brand_mapping = build_brand_mapping(
-        brands_mapping_df
-    )
 
     mapped_results = {}
     brand_mapping = build_brand_mapping(
-    brands_mapping_df
-)
+        brands_mapping_df
+    )
 
     mapped_results = {
         brand_mapping.get(brand, brand): measures

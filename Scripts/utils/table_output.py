@@ -19,24 +19,74 @@ def get_workbook(
     )
 
 
-def get_period_labels(periods_df):
+def get_period_labels(periods_df, workbook_path, is_discover=False):
 
-    periods = (
-        periods_df["custom_period"]
-        .dropna()
-        .astype(str)
-        .str.strip()
-        .unique()
-        .tolist()
-    )
-
-    if len(periods) != 2:
-
-        raise ValueError(
-            f"Expected 2 periods, found {periods}"
+    if not is_discover:
+        periods = (
+            periods_df["custom_period"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .unique()
+            .tolist()
         )
 
+        if len(periods) != 2:
+
+            raise ValueError(
+                f"Expected 2 periods, found {periods}"
+            )
+
+        return periods
+
+    excel = win32com.client.GetObject(
+        Class="Excel.Application"
+    )
+
+    wb = get_workbook(
+        excel,
+        workbook_path,
+    )
+
+    ws = wb.Worksheets(
+        "Periods Mapping"
+    )
+
+
+    periods = []
+    seen = set()
+
+    row = 2
+
+    while True:
+
+        value = ws.Cells(
+            row,
+            5,  # Column E
+        ).Value
+
+        if value is None:
+            break
+
+        value = str(value).strip()
+
+        if (
+            value
+            and value not in seen
+        ):
+
+            periods.append(
+                value
+            )
+
+            seen.add(
+                value
+            )
+
+        row += 1
+
     return periods
+    
 
 
 def initialize_layout(ws):
@@ -242,6 +292,7 @@ def write_report(
     section_name="DISCOVER",
     variables_mapping_df=None,
     brands_mapping_df=None,
+    is_discover=False
 ):
 
     excel = win32com.client.GetObject(
@@ -261,7 +312,9 @@ def write_report(
     initialize_layout(ws)
 
     period_labels = get_period_labels(
-        periods_df
+        periods_df,
+        workbook_path,
+        is_discover=is_discover
     )
 
     #
