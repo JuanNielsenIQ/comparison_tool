@@ -104,7 +104,7 @@ def main():
         workbook_path=workbook_path,
         results=duetos_results,
         section_name="MODEL",
-        metric_name="DUE TOS",
+        metric_name="DUE TOS (%)",
     )
 
 

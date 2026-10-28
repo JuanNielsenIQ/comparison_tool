@@ -212,6 +212,28 @@ def build_sheet_lookup(ws):
     return lookup
 
 
+def get_or_create_worksheet(
+    wb,
+    worksheet_name,
+):
+
+    try:
+
+        return wb.Worksheets(
+            worksheet_name
+        )
+
+    except Exception:
+
+        ws = wb.Worksheets.Add()
+
+        ws.Name = (
+            worksheet_name
+        )
+
+        return ws
+
+
 def write_report(
     workbook_path,
     results,
@@ -231,8 +253,9 @@ def write_report(
         workbook_path,
     )
 
-    ws = wb.Worksheets(
-        worksheet_name
+    ws = get_or_create_worksheet(
+        wb,
+        worksheet_name,
     )
 
     initialize_layout(ws)
@@ -564,7 +587,7 @@ def write_brand_metric(
     results,
     worksheet_name="Executive Summary",
     section_name="MODEL",
-    metric_name="DUE TOS",
+    metric_name="DUE TOS (%)",
 ):
 
     excel = win32com.client.GetObject(
@@ -576,9 +599,11 @@ def write_brand_metric(
         workbook_path,
     )
 
-    ws = wb.Worksheets(
-        worksheet_name
+    ws = get_or_create_worksheet(
+        wb,
+        worksheet_name,
     )
+
 
     initialize_layout(ws)
 
