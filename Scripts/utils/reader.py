@@ -66,6 +66,7 @@ def _load_eda(path):
 SOURCES = {
     "discover": DataSource("discover.xlsx", _load_discover),
     "eda": DataSource("eda.xlsx", _load_eda),
+    "model": DataSource("model.xlsx", _load_eda),
 }
 
 
@@ -75,9 +76,9 @@ SOURCES = {
 
 MAPPINGS = {
     "periods": (
-        "Periods Mapping",
-        "A1:E200",
         "Periods Mapping (Template)",
+        "A1:E200",
+        "Periods Mapping",
     ),
     "variables": (
         "Variables Mapping",
