@@ -280,3 +280,239 @@ def write_report(
     excel.Calculate()
 
     return last_row
+
+def build_brand_variable_lookup(ws):
+
+    lookup = {}
+
+    row = 3
+
+    while True:
+
+        brand = ws.Cells(
+            row,
+            1
+        ).Value
+
+        variable = ws.Cells(
+            row,
+            3
+        ).Value
+
+        if (
+            brand is None
+            and variable is None
+        ):
+            break
+
+        if (
+            brand is not None
+            and variable is not None
+        ):
+
+            lookup[
+                (
+                    str(brand)
+                    .strip()
+                    .upper(),
+
+                    str(variable)
+                    .strip()
+                    .upper(),
+                )
+            ] = row
+
+        row += 1
+
+    return lookup
+def write_brand_metric(
+    workbook_path,
+    results,
+    worksheet_name="Executive Summary",
+    section_name="MODEL",
+    metric_name="DUE TOS",
+):
+
+    excel = win32com.client.GetObject(
+        Class="Excel.Application"
+    )
+
+    wb = get_workbook(
+        excel,
+        workbook_path,
+    )
+
+    ws = wb.Worksheets(
+        worksheet_name
+    )
+
+    initialize_layout(ws)
+
+    metric_col = None
+
+    #
+    # Reuse existing metric column
+    # if it already exists
+    #
+
+    for col in range(4, 200):
+
+        metric = ws.Cells(
+            2,
+            col
+        ).Value
+
+        if (
+            metric is not None
+            and str(metric).strip().upper()
+            == metric_name.upper()
+        ):
+
+            metric_col = col
+            break
+
+    #
+    # Metric not found:
+    # create it under the section
+    #
+
+    if metric_col is None:
+
+        section_start = None
+
+        for col in range(4, 200):
+
+            section = ws.Cells(
+                1,
+                col
+            ).Value
+
+            if (
+                section is not None
+                and str(section).strip().upper()
+                == section_name.upper()
+            ):
+
+                section_start = col
+                break
+
+        #
+        # Existing section
+        #
+
+        if section_start is not None:
+
+            metric_col = section_start
+
+            while (
+                ws.Cells(
+                    2,
+                    metric_col
+                ).Value
+                is not None
+            ):
+                metric_col += 1
+
+        #
+        # New section
+        #
+
+        else:
+
+            metric_col = 4
+
+            while (
+                ws.Cells(
+                    2,
+                    metric_col
+                ).Value
+                is not None
+            ):
+                metric_col += 1
+
+            ws.Cells(
+                1,
+                metric_col
+            ).Value = section_name
+
+        ws.Cells(
+            2,
+            metric_col
+        ).Value = metric_name
+
+    #
+    # Build lookup:
+    # (BRAND, VARIABLE) -> ROW
+    #
+
+    lookup = build_brand_variable_lookup(
+        ws
+    )
+
+    #
+    # Clear existing values
+    # before rewriting
+    #
+
+    last_row = max(
+        lookup.values(),
+        default=3,
+    )
+
+    ws.Range(
+        ws.Cells(
+            3,
+            metric_col,
+        ),
+        ws.Cells(
+            last_row,
+            metric_col,
+        ),
+    ).ClearContents()
+
+    #
+    # Write values
+    #
+
+    for brand, variables in results.items():
+
+        for variable, value in variables.items():
+
+            key = (
+                str(brand)
+                .strip()
+                .upper(),
+
+                str(variable)
+                .strip()
+                .upper(),
+            )
+
+            if key not in lookup:
+                continue
+
+            row = lookup[key]
+
+            ws.Cells(
+                row,
+                metric_col
+            ).Value = value
+
+    #
+    # Format
+    #
+
+    ws.Range(
+        ws.Cells(
+            3,
+            metric_col,
+        ),
+        ws.Cells(
+            last_row,
+            metric_col,
+        ),
+    ).NumberFormat = "0.00"
+
+    excel.Calculate()
+
+    return metric_col
