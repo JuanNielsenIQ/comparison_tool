@@ -16,6 +16,8 @@ def get_duetos_columns(ws):
 
     duetos_cols = {}
 
+    inside_duetos = False
+
     for col in range(
         1,
         ws.max_column + 1,
@@ -45,7 +47,7 @@ def get_duetos_columns(ws):
             variable_col = col
 
         #
-        # Due Tos columns
+        # Start Due Tos section
         #
 
         if (
@@ -56,11 +58,31 @@ def get_duetos_columns(ws):
             == "due_tos (%)"
         ):
 
-            if row2 is not None:
+            inside_duetos = True
 
-                duetos_cols[
-                    str(row2).strip()
-                ] = col
+        #
+        # Stop when next row1 header begins
+        #
+
+        elif (
+            inside_duetos
+            and row1 is not None
+        ):
+
+            break
+
+        #
+        # Capture period headers
+        #
+
+        if (
+            inside_duetos
+            and row2 is not None
+        ):
+
+            duetos_cols[
+                str(row2).strip()
+            ] = col
 
     if variable_col is None:
 
@@ -78,6 +100,7 @@ def get_duetos_columns(ws):
         variable_col,
         duetos_cols,
     )
+
 
 def build_duetos_results(
     model_wb,

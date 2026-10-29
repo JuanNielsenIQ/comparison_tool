@@ -730,6 +730,7 @@ def build_brand_variable_lookup(ws):
         row += 1
 
     return lookup
+
 def write_brand_metric(
     workbook_path,
     results,
@@ -737,11 +738,12 @@ def write_brand_metric(
     section_name="MODEL",
     metric_name="DUE TOS (%)",
     brands_mapping_df=None,
-    brand_mapping_column=None
+    brand_mapping_column=None,
 ):
 
-
-
+    #
+    # Brand mapping
+    #
 
     brand_lookup = {}
 
@@ -790,6 +792,10 @@ def write_brand_metric(
 
         results = mapped_results
 
+    #
+    # Workbook / Worksheet
+    #
+
     excel = win32com.client.GetObject(
         Class="Excel.Application"
     )
@@ -804,138 +810,201 @@ def write_brand_metric(
         worksheet_name,
     )
 
-
     initialize_layout(ws)
 
-    metric_col = None
-
     #
-    # Reuse existing metric column
-    # if it already exists
+    # Discover period headers
     #
 
-    for col in range(4, 200):
+    period_headers = []
 
-        metric = ws.Cells(
-            2,
-            col
+    for brand_values in results.values():
+
+        for variable_values in (
+            brand_values.values()
+        ):
+
+            period_headers = list(
+                variable_values.keys()
+            )
+
+            break
+
+        if period_headers:
+            break
+
+    if not period_headers:
+        return {}
+
+    #
+    # Find section
+    #
+
+    section_start = None
+
+    for col in range(
+        4,
+        200,
+    ):
+
+        value = ws.Cells(
+            1,
+            col,
         ).Value
 
         if (
-            metric is not None
-            and str(metric).strip().upper()
-            == metric_name.upper()
+            value is not None
+            and str(value).strip().upper()
+            == section_name.upper()
         ):
 
-            metric_col = col
+            section_start = col
             break
 
     #
-    # Metric not found:
-    # create it under the section
+    # Create section if needed
     #
 
-    if metric_col is None:
+    if section_start is None:
 
-        section_start = None
+        section_start = (
+            ws.Cells(
+                2,
+                ws.Columns.Count,
+            )
+            .End(-4159)  # xlToLeft
+            .Column
+            + 1
+        )
 
-        for col in range(4, 200):
+        ws.Cells(
+            1,
+            section_start,
+        ).Value = section_name
 
-            section = ws.Cells(
-                1,
-                col
+    #
+    # Build metric columns
+    # Reuse existing headers
+    #
+
+    metric_cols = {}
+
+    for period_header in (
+        period_headers
+    ):
+
+        header_name = (
+            f"{metric_name}_{period_header}"
+        )
+
+        existing_col = None
+
+        #
+        # Look for existing header
+        #
+
+        for col in range(
+            section_start,
+            200,
+        ):
+
+            value = ws.Cells(
+                2,
+                col,
             ).Value
 
             if (
-                section is not None
-                and str(section).strip().upper()
-                == section_name.upper()
+                value is not None
+                and str(value).strip().upper()
+                == header_name.upper()
             ):
 
-                section_start = col
+                existing_col = col
                 break
 
         #
-        # Existing section
+        # Reuse existing column
         #
 
-        if section_start is not None:
+        if existing_col is not None:
 
-            metric_col = section_start
+            metric_cols[
+                period_header
+            ] = existing_col
 
-            while (
-                ws.Cells(
-                    2,
-                    metric_col
-                ).Value
-                is not None
-            ):
-                metric_col += 1
+            continue
 
         #
-        # New section
+        # Create new column
         #
 
-        else:
+        new_col = section_start
 
-            metric_col = 4
-
-            while (
-                ws.Cells(
-                    2,
-                    metric_col
-                ).Value
-                is not None
-            ):
-                metric_col += 1
-
+        while (
             ws.Cells(
-                1,
-                metric_col
-            ).Value = section_name
+                2,
+                new_col,
+            ).Value
+            is not None
+        ):
+            new_col += 1
 
         ws.Cells(
             2,
-            metric_col
-        ).Value = metric_name
+            new_col,
+        ).Value = header_name
+
+        metric_cols[
+            period_header
+        ] = new_col
 
     #
-    # Build lookup:
-    # (BRAND, VARIABLE) -> ROW
+    # Build row lookup
     #
 
-    lookup = build_brand_variable_lookup(
-        ws
+    lookup = (
+        build_brand_variable_lookup(
+            ws
+        )
     )
-
-    #
-    # Clear existing values
-    # before rewriting
-    #
 
     last_row = max(
         lookup.values(),
         default=3,
     )
 
-    ws.Range(
-        ws.Cells(
-            3,
-            metric_col,
-        ),
-        ws.Cells(
-            last_row,
-            metric_col,
-        ),
-    ).ClearContents()
+    #
+    # Clear existing data
+    #
+
+    for col in (
+        metric_cols.values()
+    ):
+
+        ws.Range(
+            ws.Cells(
+                3,
+                col,
+            ),
+            ws.Cells(
+                last_row,
+                col,
+            ),
+        ).ClearContents()
 
     #
     # Write values
     #
 
-    for brand, variables in results.items():
+    for (
+        brand,
+        variables,
+    ) in results.items():
 
-        for variable, value in variables.items():
+        for (
+            variable,
+            period_values,
+        ) in variables.items():
 
             key = (
                 str(brand)
@@ -950,28 +1019,48 @@ def write_brand_metric(
             if key not in lookup:
                 continue
 
-            row = lookup[key]
+            row = lookup[
+                key
+            ]
 
-            ws.Cells(
-                row,
-                metric_col
-            ).Value = value
+            for (
+                period_header,
+                value,
+            ) in period_values.items():
+
+                col = (
+                    metric_cols.get(
+                        period_header
+                    )
+                )
+
+                if col is None:
+                    continue
+
+                ws.Cells(
+                    row,
+                    col,
+                ).Value = value
 
     #
     # Format
     #
 
-    ws.Range(
-        ws.Cells(
-            3,
-            metric_col,
-        ),
-        ws.Cells(
-            last_row,
-            metric_col,
-        ),
-    ).NumberFormat = "0.00"
+    for col in (
+        metric_cols.values()
+    ):
+
+        ws.Range(
+            ws.Cells(
+                3,
+                col,
+            ),
+            ws.Cells(
+                last_row,
+                col,
+            ),
+        ).NumberFormat = "0%"
 
     excel.Calculate()
 
-    return metric_col
+    return metric_cols
