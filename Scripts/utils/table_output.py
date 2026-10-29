@@ -31,10 +31,10 @@ def get_period_labels(periods_df, workbook_path, is_discover=False):
             .tolist()
         )
 
-        if len(periods) != 2:
+        if len(periods) < 2:
 
             raise ValueError(
-                f"Expected 2 periods, found {periods}"
+                f"Expected at least 2 periods, found {periods}"
             )
 
         return periods
@@ -173,15 +173,29 @@ def find_or_create_section(
         current_col += 1
 
     #
-    # VAR column
+    # VAR columns
     #
 
-    ws.Cells(
-        2,
-        current_col
-    ).Value = "VAR"
+    for idx in range(
+        len(period_labels) - 1
+    ):
 
-    return section_col
+        current_period = (
+            period_labels[idx]
+        )
+
+        next_period = (
+            period_labels[idx + 1]
+        )
+
+        ws.Cells(
+            2,
+            current_col
+        ).Value = (
+            f"VAR_{current_period}_vs_{next_period}"
+        )
+
+        current_col += 1
 
 
 
@@ -203,19 +217,28 @@ def format_section(
     ws,
     section_col,
     last_row,
+    num_periods,
 ):
 
     if last_row < 3:
         return
 
+    var_col = (
+        section_col
+        + num_periods
+    )
+
     ws.Range(
-        ws.Cells(3, section_col + 2),
-        ws.Cells(last_row, section_col + 2)
+        ws.Cells(3, var_col),
+        ws.Cells(last_row, var_col)
     ).NumberFormat = "0%"
 
     ws.Range(
         ws.Cells(3, section_col),
-        ws.Cells(last_row, section_col + 1)
+        ws.Cells(
+            last_row,
+            var_col - 1,
+        )
     ).NumberFormat = "0.00"
 
 
@@ -634,6 +657,7 @@ def write_report(
         ws,
         section_col,
         last_row,
+        len(period_labels),
     )
 
     excel.Calculate()
