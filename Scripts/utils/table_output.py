@@ -292,12 +292,62 @@ def write_report(
     section_name="DISCOVER",
     variables_mapping_df=None,
     brands_mapping_df=None,
-    is_discover=False
+    is_discover=False,
+    brand_mapping_column=None,
 ):
 
     excel = win32com.client.GetObject(
         Class="Excel.Application"
     )
+
+
+    brand_lookup = {}
+
+    if (
+        brands_mapping_df is not None
+        and brand_mapping_column is not None
+    ):
+        brand_lookup = dict(
+            zip(
+                brands_mapping_df[
+                    brand_mapping_column
+                ]
+                .astype(str)
+                .str.strip()
+                .str.upper(),
+
+                brands_mapping_df.iloc[:, 0]
+                .astype(str)
+                .str.strip(),
+            )
+        )
+
+    if brand_lookup:
+
+        mapped_results = {}
+
+        for (
+            source_brand,
+            measures
+        ) in results.items():
+
+            target_brand = (
+                brand_lookup.get(
+                    str(source_brand)
+                    .strip()
+                    .upper()
+                )
+            )
+
+            if target_brand is None:
+                continue
+
+            mapped_results[
+                target_brand
+            ] = measures
+
+        results = mapped_results
+
 
     wb = get_workbook(
         excel,
@@ -641,7 +691,59 @@ def write_brand_metric(
     worksheet_name="Executive Summary",
     section_name="MODEL",
     metric_name="DUE TOS (%)",
+    brands_mapping_df=None,
+    brand_mapping_column=None
 ):
+
+
+
+
+    brand_lookup = {}
+
+    if (
+        brands_mapping_df is not None
+        and brand_mapping_column is not None
+    ):
+        brand_lookup = dict(
+            zip(
+                brands_mapping_df[
+                    brand_mapping_column
+                ]
+                .astype(str)
+                .str.strip()
+                .str.upper(),
+
+                brands_mapping_df.iloc[:, 0]
+                .astype(str)
+                .str.strip(),
+            )
+        )
+
+    if brand_lookup:
+
+        mapped_results = {}
+
+        for (
+            source_brand,
+            measures
+        ) in results.items():
+
+            target_brand = (
+                brand_lookup.get(
+                    str(source_brand)
+                    .strip()
+                    .upper()
+                )
+            )
+
+            if target_brand is None:
+                continue
+
+            mapped_results[
+                target_brand
+            ] = measures
+
+        results = mapped_results
 
     excel = win32com.client.GetObject(
         Class="Excel.Application"

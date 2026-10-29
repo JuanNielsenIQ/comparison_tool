@@ -39,7 +39,8 @@ def main():
         section_name="DISCOVER",
         variables_mapping_df=variables_mapping_df,
         brands_mapping_df=brands_mapping_df,
-        is_discover=True
+        is_discover=True,
+        brand_mapping_column="Discover",
     )
 
 

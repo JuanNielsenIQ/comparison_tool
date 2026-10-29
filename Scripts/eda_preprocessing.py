@@ -87,6 +87,7 @@ def main():
         section_name="EDA",
         variables_mapping_df=variables_df,
         brands_mapping_df=brands_df,
+        brand_mapping_column="EDA",
     )
 
 

@@ -87,6 +87,7 @@ def main():
         section_name="Model",
         variables_mapping_df=variables_df,
         brands_mapping_df=brands_df,
+        brand_mapping_column="Model",
     )
 
 
@@ -103,6 +104,8 @@ def main():
         results=duetos_results,
         section_name="MODEL",
         metric_name="DUE TOS (%)",
+        brands_mapping_df=brands_df,
+        brand_mapping_column="Model",
     )
 
 
