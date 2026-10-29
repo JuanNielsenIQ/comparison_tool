@@ -13,34 +13,54 @@ from eda.parser import (
 def get_duetos_columns(ws):
 
     variable_col = None
-    duetos_col = None
+
+    duetos_cols = {}
 
     for col in range(
         1,
         ws.max_column + 1,
     ):
 
-        header = ws.cell(
+        row1 = ws.cell(
             1,
             col,
         ).value
 
-        if header is None:
-            continue
+        row2 = ws.cell(
+            2,
+            col,
+        ).value
 
-        header = (
-            str(header)
+        #
+        # Variable column
+        #
+
+        if (
+            row1 is not None
+            and str(row1)
             .strip()
             .lower()
-        )
-
-        if header == "variable":
-
+            == "variable"
+        ):
             variable_col = col
 
-        elif header == "due_tos (%)":
+        #
+        # Due Tos columns
+        #
 
-            duetos_col = col
+        if (
+            row1 is not None
+            and str(row1)
+            .strip()
+            .lower()
+            == "due_tos (%)"
+        ):
+
+            if row2 is not None:
+
+                duetos_cols[
+                    str(row2).strip()
+                ] = col
 
     if variable_col is None:
 
@@ -48,18 +68,16 @@ def get_duetos_columns(ws):
             "Variable column not found."
         )
 
-    if duetos_col is None:
+    if not duetos_cols:
 
         raise ValueError(
-            "Due_tos (%) column not found."
+            "Due_tos (%) columns not found."
         )
 
     return (
         variable_col,
-        duetos_col,
+        duetos_cols,
     )
-
-
 
 def build_duetos_results(
     model_wb,
@@ -72,10 +90,8 @@ def build_duetos_results(
         "Model Result"
     ]
 
-    variable_col, duetos_col = (
-        get_duetos_columns(
-            ws
-        )
+    variable_col, duetos_cols = (
+        get_duetos_columns(ws)
     )
 
     variable_mapping = (
@@ -113,13 +129,23 @@ def build_duetos_results(
             )
         )
 
-        value = (
-            ws.cell(
-                row,
-                duetos_col,
-            ).value
-            or 0
-        )
+        period_values = {}
+
+        for (
+            period_name,
+            col
+        ) in duetos_cols.items():
+
+            period_values[
+                period_name
+            ] = (
+                ws.cell(
+                    row,
+                    col,
+                ).value
+                or 0
+            )
+
 
         for brand in all_brands:
 
@@ -140,7 +166,7 @@ def build_duetos_results(
                 brand
             ][
                 summary_variable
-            ] = value
+            ] = period_values.copy()
 
             break
 
