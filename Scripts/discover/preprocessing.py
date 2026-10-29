@@ -3,6 +3,13 @@ import win32com.client
 
 from utils.table_output import get_workbook
 
+AVERAGE_MEASURES = [
+    "average",
+    "avg",
+    "mean",
+]
+
+
 def normalize(value):
 
     if value is None:
@@ -197,14 +204,23 @@ def build_discover_results(
 
             for period in custom_periods:
 
-                value = (
+                period_data = (
                     brand_df[
-                        brand_df["custom_period"]
-                        == period
+                        brand_df["custom_period"] == period
                     ][discover_column]
                     .fillna(0)
-                    .sum()
                 )
+                measure_name = str(discover_column).strip().lower()
+
+                is_average_measure = any(
+                    keyword in measure_name
+                    for keyword in AVERAGE_MEASURES
+                )
+
+                if is_average_measure:
+                    value = period_data.mean()
+                else:
+                    value = period_data.sum()
 
                 results[brand][measure][
                     str(period)
