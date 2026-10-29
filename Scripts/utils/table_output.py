@@ -196,6 +196,8 @@ def find_or_create_section(
         )
 
         current_col += 1
+    
+    return section_col
 
 
 
@@ -215,32 +217,35 @@ def calculate_var(
 
 def format_section(
     ws,
-    section_col,
+    section_columns,
     last_row,
-    num_periods,
 ):
 
     if last_row < 3:
         return
 
-    var_col = (
-        section_col
-        + num_periods
-    )
+    for header, col in section_columns.items():
 
-    ws.Range(
-        ws.Cells(3, var_col),
-        ws.Cells(last_row, var_col)
-    ).NumberFormat = "0%"
-
-    ws.Range(
-        ws.Cells(3, section_col),
-        ws.Cells(
-            last_row,
-            var_col - 1,
+        rng = ws.Range(
+            ws.Cells(
+                3,
+                col,
+            ),
+            ws.Cells(
+                last_row,
+                col,
+            ),
         )
-    ).NumberFormat = "0.00"
 
+        if str(header).upper().startswith(
+            "VAR_"
+        ):
+
+            rng.NumberFormat = "0%"
+
+        else:
+
+            rng.NumberFormat = "0.00"
 
 def sheet_has_structure(ws):
 
@@ -470,10 +475,24 @@ def write_report(
 
         current_col += 1
 
-    section_columns[
-        "VAR"
-    ] = current_col
 
+    for idx in range(
+        len(period_labels) - 1
+    ):
+
+        current_period = (
+            period_labels[idx]
+        )
+
+        next_period = (
+            period_labels[idx + 1]
+        )
+
+        section_columns[
+            f"VAR_{current_period}_vs_{next_period}"
+        ] = current_col
+
+        current_col += 1
     #
     # Existing structure
     #
@@ -538,32 +557,33 @@ def write_report(
                 #
                 # VAR uses first/last period
                 #
+                for idx in range(
+                    len(period_labels) - 1
+                ):
 
-                first_period = (
-                    period_labels[0]
-                )
+                    current_period = (
+                        period_labels[idx]
+                    )
 
-                last_period = (
-                    period_labels[-1]
-                )
+                    next_period = (
+                        period_labels[idx + 1]
+                    )
 
-                var_value = (
-                    calculate_var(
+                    var_value = calculate_var(
                         periods.get(
-                            first_period
+                            current_period
                         ),
                         periods.get(
-                            last_period
+                            next_period
                         ),
                     )
-                )
 
-                ws.Cells(
-                    row,
-                    section_columns[
-                        "VAR"
-                    ]
-                ).Value = var_value
+                    ws.Cells(
+                        row,
+                        section_columns[
+                            f"VAR_{current_period}_vs_{next_period}"
+                        ]
+                    ).Value = var_value
 
         last_row = max(
             lookup.values(),
@@ -623,31 +643,33 @@ def write_report(
                         )
                     )
 
-                first_period = (
-                    period_labels[0]
-                )
+                for idx in range(
+                    len(period_labels) - 1
+                ):
 
-                last_period = (
-                    period_labels[-1]
-                )
+                    current_period = (
+                        period_labels[idx]
+                    )
 
-                var_value = (
-                    calculate_var(
+                    next_period = (
+                        period_labels[idx + 1]
+                    )
+
+                    var_value = calculate_var(
                         periods.get(
-                            first_period
+                            current_period
                         ),
                         periods.get(
-                            last_period
+                            next_period
                         ),
                     )
-                )
 
-                ws.Cells(
-                    row,
-                    section_columns[
-                        "VAR"
-                    ]
-                ).Value = var_value
+                    ws.Cells(
+                        row,
+                        section_columns[
+                            f"VAR_{current_period}_vs_{next_period}"
+                        ]
+                    ).Value = var_value
 
                 row += 1
 
@@ -655,9 +677,8 @@ def write_report(
 
     format_section(
         ws,
-        section_col,
+        section_columns,
         last_row,
-        len(period_labels),
     )
 
     excel.Calculate()
