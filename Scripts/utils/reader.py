@@ -77,7 +77,7 @@ SOURCES = {
 MAPPINGS = {
     "periods": (
         "Periods Mapping (Template)",
-        "A1:E200",
+        "E1:E200",
         "Periods Mapping",
     ),
     "variables": (
@@ -128,6 +128,13 @@ class WorkbookReader:
             if fallback is None:
                 raise
             ws = self.wb.sheets[fallback]
+        if sheet == "Periods Mapping (Template)":
+            values = ws.range(cell_range).value
+            values = [v for v in values if v is not None]
+            return pd.DataFrame(
+                values[1:],
+                columns=[values[0]],
+            )
 
         return dataframe_from_values(
             ws.range(cell_range).value

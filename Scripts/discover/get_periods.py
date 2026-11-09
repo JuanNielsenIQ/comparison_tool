@@ -52,7 +52,7 @@ def harmonize_period(period_text):
 
         return datetime.strptime(
             date_text,
-            "%d/%m/%y",
+            "%m/%d/%y",
         )
 
     except Exception:
