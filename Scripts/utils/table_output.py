@@ -1,3 +1,5 @@
+import pandas as pd
+
 import win32com.client
 
 
@@ -379,8 +381,9 @@ def write_report(
 
 
     reverse_brand_lookup = {
-        v.upper(): k
+        str(v).strip().upper(): k
         for k, v in brand_lookup.items()
+        if pd.notna(v)
     }
 
     results = {
