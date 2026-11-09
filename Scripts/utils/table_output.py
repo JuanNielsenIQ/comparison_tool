@@ -335,16 +335,17 @@ def write_report(
         brands_mapping_df is not None
         and brand_mapping_column is not None
     ):
+
         brand_lookup = dict(
             zip(
-                brands_mapping_df[
-                    brand_mapping_column
-                ]
+                brands_mapping_df.iloc[:, 0]
                 .astype(str)
                 .str.strip()
                 .str.upper(),
 
-                brands_mapping_df.iloc[:, 0]
+                brands_mapping_df[
+                    brand_mapping_column
+                ]
                 .astype(str)
                 .str.strip(),
             )
@@ -376,6 +377,19 @@ def write_report(
 
         results = mapped_results
 
+
+    reverse_brand_lookup = {
+        v.upper(): k
+        for k, v in brand_lookup.items()
+    }
+
+    results = {
+        reverse_brand_lookup.get(
+            str(brand).strip().upper(),
+            brand
+        ): measures
+        for brand, measures in results.items()
+    }
 
     wb = get_workbook(
         excel,
