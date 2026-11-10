@@ -357,18 +357,9 @@ def write_report(
 
         mapped_results = {}
 
-        for (
-            source_brand,
-            measures
-        ) in results.items():
-
-            target_brand = (
-                brand_lookup.get(
-                    str(source_brand)
-                    .strip()
-                    .upper()
-                )
-            )
+        for (source_brand,measures) in results.items():
+            if source_brand in brand_lookup.values():
+                target_brand = next( (k for k, v in brand_lookup.items() if v == source_brand),None)
 
             if target_brand is None:
                 continue
@@ -378,21 +369,6 @@ def write_report(
             ] = measures
 
         results = mapped_results
-
-
-    reverse_brand_lookup = {
-        str(v).strip().upper(): k
-        for k, v in brand_lookup.items()
-        if pd.notna(v)
-    }
-
-    results = {
-        reverse_brand_lookup.get(
-            str(brand).strip().upper(),
-            brand
-        ): measures
-        for brand, measures in results.items()
-    }
 
     wb = get_workbook(
         excel,
