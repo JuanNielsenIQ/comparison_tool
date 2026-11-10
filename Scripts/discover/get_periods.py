@@ -3,7 +3,7 @@
 import sys
 from datetime import datetime, timedelta
 
-import time
+import re
 import pandas as pd
 import win32com.client
 
@@ -42,22 +42,6 @@ def get_periods(discover_path):
     )
 
     return periods
-
-
-def harmonize_period(period_text):
-
-    try:
-
-        date_text = str(period_text)[-8:]
-
-        return datetime.strptime(
-            date_text,
-            "%m/%d/%y",
-        )
-
-    except Exception:
-
-        return None
 
 
 def build_week_year(date_value):
@@ -99,6 +83,29 @@ def get_sheet(workbook, sheet_name):
 
 
 
+def detect_period_format(periods):
+    max_first_part = (
+        pd.Series(periods)
+        .str.extract(r"(\d+)/\d+/\d+")[0]
+        .str.replace(r"\D", "", regex=True)
+        .astype(int)
+    ).max()
+    if max_first_part > 12:
+        return "%d/%m/%y"
+    else:
+        return "%m/%d/%y"
+
+def harmonize_period(period_text, period_format="%m/%d/%y"):
+    try:
+        date_text = str(period_text)[-8:]
+        return datetime.strptime(
+            date_text,
+            period_format,
+        )
+    except Exception:
+        return None
+
+
 def write_periods(
     workbook_path,
     periods,
@@ -134,10 +141,13 @@ def write_periods(
 
     row = 2
 
+    period_format = detect_period_format(periods)
+
     for period in periods:
 
         harmonized = harmonize_period(
-            period
+            period,
+            period_format
         )
 
         week_year = build_week_year(
