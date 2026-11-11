@@ -29,6 +29,7 @@ def get_brand_column(discover_df):
     candidates = [
         "BRAND",
         "SC BRAND",
+        "BRAND SC",
     ]
 
     for col in candidates:
