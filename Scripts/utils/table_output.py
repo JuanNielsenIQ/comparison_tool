@@ -361,12 +361,12 @@ def write_report(
             if source_brand in brand_lookup.values():
                 target_brand = next( (k for k, v in brand_lookup.items() if v == source_brand),None)
 
-            if target_brand is None:
-                continue
+                if target_brand is None:
+                    continue
 
-            mapped_results[
-                target_brand
-            ] = measures
+                mapped_results[
+                    target_brand
+                ] = measures
 
         results = mapped_results
 
