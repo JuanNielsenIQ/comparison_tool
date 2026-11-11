@@ -194,7 +194,7 @@ def build_discover_results(
             brand_df = discover_df[
                 discover_df[brand_col]
                 == brand
-            ]
+            ].dropna()
 
             custom_periods = (
                 brand_df["custom_period"]
