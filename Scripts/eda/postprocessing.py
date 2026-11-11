@@ -96,83 +96,91 @@ def build_formula_variables(
 
     return results
 
-
 def add_total_metric(
     eda_wb,
     results,
     period_labels,
 ):
     """
-    Add TOTAL metric from
-    Brand Summary sheet.
-
-    Output:
-
-    results[brand]["TOTAL"] = {
-        "Year 1": value,
-        "Year 2": value,
-        ...
-    }
+    Add TOTAL metric from Sales Volume section
+    of Brand Summary sheet.
     """
 
-    ws = eda_wb[
-        "Brand Summary"
-    ]
+    ws = eda_wb["Brand Summary"]
 
-    # Period values start in column E
-    first_period_col = 5
+    # ------------------------------------------
+    # Find Sales Volume columns by period
+    # ------------------------------------------
+    period_columns = {}
 
-    brand_totals = {}
+    current_metric = None
 
-    for row in range(
-        4,
-        ws.max_row + 1,
-    ):
+    for col in range(1, ws.max_column + 1):
 
-        brand = ws.cell(
-            row,
-            1
+        metric_header = ws.cell(1, col).value
+
+        if metric_header not in (
+            None,
+            "",
+        ):
+            current_metric = (
+                str(metric_header)
+                .strip()
+            )
+
+        period_header = ws.cell(
+            2,
+            col,
         ).value
+
+        if (
+            current_metric
+            == "Sales Volume"
+            and period_header
+            in period_labels
+        ):
+            period_columns[
+                period_header
+            ] = col
+
+    # ------------------------------------------
+    # Find brand rows
+    # ------------------------------------------
+    brand_rows = {}
+
+    for row in range(4, ws.max_row + 1):
+
+        brand = ws.cell(row, 1).value
 
         if brand is None:
             continue
 
-        brand = str(
-            brand
-        ).strip()
+        brand_rows[str(brand).strip()] = row
 
-        values = {}
-
-        for idx, period in enumerate(
-            period_labels
-        ):
-
-            col = (
-                first_period_col
-                + idx
-            )
-
-            values[period] = (
-                ws.cell(
-                    row,
-                    col
-                ).value
-                or 0
-            )
-
-        brand_totals[
-            brand
-        ] = values
-
+    # ------------------------------------------
+    # Populate TOTAL metric
+    # ------------------------------------------
     for brand in results:
 
-        if brand in brand_totals:
+        row = brand_rows.get(brand)
 
-            results[brand][
-                "TOTAL"
-            ] = brand_totals[
-                brand
-            ]
+        if row is None:
+            continue
+
+        total_values = {}
+
+        for period in period_labels:
+
+            col = period_columns.get(period)
+
+            if col is None:
+                total_values[period] = 0
+            else:
+                total_values[period] = (
+                    ws.cell(row, col).value or 0
+                )
+
+        results[brand]["TOTAL"] = total_values
 
     return results
 
